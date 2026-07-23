@@ -38,7 +38,7 @@ def check_tickets():
             response = requests.get(url, headers=headers, timeout=15)
             
             # Checks if both '31' and 'Jul' appear on the specific theater's schedule
-            if response.status_code == 200 and "31" in response.text and "Jul" in response.text:
+            if response.status_code == 200 and "26" in response.text and "Jul" in response.text:
                 send_telegram_alert(f"🚨 IMAX ALERT! {name} has updated showtimes for July 31st! Open PVR app NOW!")
                 alert_triggered = True
             else:
