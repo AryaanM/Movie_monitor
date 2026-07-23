@@ -10,7 +10,7 @@ THEATERS = {
     "LUXE (District)": "https://www.district.in/movies/inox-phoenix-market-city-formerly-jazz-cinemas-velachery-chennai-in-kolathur-CD1020779"
 }
 
-TARGET_DATE = "26"  # Test with 26 first, then change to 31!
+TARGET_DATE = "31"  # Test with 26 first, then change to 31!
 TARGET_MONTH = "Jul"
 TARGET_MONTH_NUM = "07"
 TARGET_YEAR = "2026"
