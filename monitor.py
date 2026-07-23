@@ -9,7 +9,7 @@ THEATERS = {
     "LUXE (District)": "https://www.district.in/movies/inox-phoenix-market-city-formerly-jazz-cinemas-velachery-chennai-in-kolathur-CD1020779"
 }
 
-TARGET_DATE = "31"  
+TARGET_DATE = "26"  
 TARGET_MONTH = "Jul"
 
 def send_telegram_alert(msg):
