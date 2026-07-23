@@ -10,7 +10,7 @@ THEATERS = {
     "LUXE (District)": "https://www.district.in/movies/inox-phoenix-market-city-formerly-jazz-cinemas-velachery-chennai-in-kolathur-CD1020779"
 }
 
-TARGET_DATE = "26"  # Leave as 26 to test the ping
+TARGET_DATE = "31"  # Leave as 26 to test the ping
 TARGET_MONTH = "Jul"
 
 def send_telegram_alert(msg):
