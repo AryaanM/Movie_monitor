@@ -6,8 +6,6 @@ CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
 # The exact URLs for Palazzo and LUXE across both platforms
 THEATERS = {
-    "Palazzo (BookMyShow)": "https://in.bookmyshow.com/cinemas/chen/pvr-palazzothe-nexus-vijaya-mall/buytickets/PVPZ/",
-    "LUXE (BookMyShow)": "https://in.bookmyshow.com/cinemas/chen/inox-luxe-phoenix-market-city-velachery/buytickets/INPR/",
     "Palazzo (District)": "https://www.district.in/movies/pvr-palazzo-the-nexus-vijaya-mall-chennai-in-chennai-CD1022274",
     "LUXE (District)": "https://www.district.in/movies/inox-phoenix-market-city-formerly-jazz-cinemas-velachery-chennai-in-kolathur-CD1020779"
 }
