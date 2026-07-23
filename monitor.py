@@ -1,6 +1,5 @@
 import os
-import requests
-import cloudscraper
+from curl_cffi import requests
 
 BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
@@ -10,8 +9,7 @@ THEATERS = {
     "LUXE (Phoenix Marketcity)": "https://www.pvrcinemas.com/cinemasessions/Chennai/INOX-Luxe-Phoenix-Market-City,-Velachery--(formerly-Jazz-Cinemas)Chennai/320"
 }
 
-# Set your target date here once so logs and checks stay in sync
-TARGET_DATE = "26"  # Change to "31" after testing
+TARGET_DATE = "26"  # Keep as 26 for testing
 TARGET_MONTH = "Jul"
 
 def send_telegram_alert(msg):
@@ -27,20 +25,13 @@ def send_telegram_alert(msg):
         print(f"Error sending Telegram alert: {e}")
 
 def check_tickets():
-    scraper = cloudscraper.create_scraper(
-        browser={
-            'browser': 'chrome',
-            'platform': 'windows',
-            'desktop': True
-        }
-    )
-    
     alert_triggered = False
     
     for name, url in THEATERS.items():
         print(f"Checking {name}...")
         try:
-            response = scraper.get(url, timeout=15)
+            # impersonate="chrome" perfectly mimics a real browser's network fingerprint
+            response = requests.get(url, impersonate="chrome", timeout=15)
             print(f"HTTP Status Code for {name}: {response.status_code}")
             
             if response.status_code == 200:
