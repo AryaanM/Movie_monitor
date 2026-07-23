@@ -1,4 +1,5 @@
 import os
+import re
 from curl_cffi import requests
 
 BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
@@ -9,8 +10,10 @@ THEATERS = {
     "LUXE (District)": "https://www.district.in/movies/inox-phoenix-market-city-formerly-jazz-cinemas-velachery-chennai-in-kolathur-CD1020779"
 }
 
-TARGET_DATE = "26"  
+TARGET_DATE = "26"  # Test with 26 first, then change to 31!
 TARGET_MONTH = "Jul"
+TARGET_MONTH_NUM = "07"
+TARGET_YEAR = "2026"
 
 def send_telegram_alert(msg):
     telegram_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
@@ -27,13 +30,12 @@ def send_telegram_alert(msg):
 def check_tickets():
     alert_triggered = False
     
-    # Check for exact date phrases rather than isolated numbers and words
-    valid_date_formats = [
-        f"{TARGET_DATE} {TARGET_MONTH}",       # "31 Jul"
-        f"{TARGET_DATE} {TARGET_MONTH}y",      # "31 July"
-        f"{TARGET_MONTH} {TARGET_DATE}",       # "Jul 31"
-        f"{TARGET_DATE}-{TARGET_MONTH}"        # "31-Jul"
-    ]
+    # 1. The exact backend API date format (e.g., "2026-07-26")
+    iso_date = f"{TARGET_YEAR}-{TARGET_MONTH_NUM}-{TARGET_DATE}"
+    
+    # 2. Visible text formats
+    visible_format_1 = f"{TARGET_DATE} {TARGET_MONTH}".upper() # "26 JUL"
+    visible_format_2 = f"{TARGET_MONTH} {TARGET_DATE}".upper() # "JUL 26"
     
     for name, url in THEATERS.items():
         print(f"Checking {name}...")
@@ -42,10 +44,14 @@ def check_tickets():
             print(f"HTTP Status Code for {name}: {response.status_code}")
             
             if response.status_code == 200:
-                text = response.text
+                raw_html = response.text
                 
-                # Check if ANY of the exact date strings exist in the HTML
-                if any(fmt in text for fmt in valid_date_formats):
+                # Strip all HTML tags to read plain text, and compress multiple spaces
+                clean_text = re.sub(r'<[^>]+>', ' ', raw_html)
+                clean_text = re.sub(r'\s+', ' ', clean_text).upper()
+                
+                # Check if either the backend ISO date exists, or the cleaned text contains the date
+                if iso_date in raw_html or visible_format_1 in clean_text or visible_format_2 in clean_text:
                     send_telegram_alert(f"🚨 IMAX ALERT! {name} has updated showtimes for {TARGET_DATE} {TARGET_MONTH}! Open app NOW!")
                     alert_triggered = True
                 else:
