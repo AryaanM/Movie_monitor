@@ -24,7 +24,7 @@ def check_tickets():
         response = requests.get(URL, headers=headers, timeout=15)
         
         # Customize this condition based on what appears when the date/shows drop
-        if response.status_code == 200 and "31 Jul" in response.text:
+        if response.status_code == 200 and "26 Jul" in response.text:
             send_telegram_alert("🚨 IMAX TICKETS LIVE! Check PVR / INOX App immediately!")
             print("Alert sent successfully!")
         else:
