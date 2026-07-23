@@ -4,13 +4,12 @@ from curl_cffi import requests
 BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
-# The exact URLs for Palazzo and LUXE across both platforms
 THEATERS = {
     "Palazzo (District)": "https://www.district.in/movies/pvr-palazzo-the-nexus-vijaya-mall-chennai-in-chennai-CD1022274",
     "LUXE (District)": "https://www.district.in/movies/inox-phoenix-market-city-formerly-jazz-cinemas-velachery-chennai-in-kolathur-CD1020779"
 }
 
-TARGET_DATE = "31"  # Leave as 26 to test the ping
+TARGET_DATE = "31"  
 TARGET_MONTH = "Jul"
 
 def send_telegram_alert(msg):
@@ -28,19 +27,29 @@ def send_telegram_alert(msg):
 def check_tickets():
     alert_triggered = False
     
+    # Check for exact date phrases rather than isolated numbers and words
+    valid_date_formats = [
+        f"{TARGET_DATE} {TARGET_MONTH}",       # "31 Jul"
+        f"{TARGET_DATE} {TARGET_MONTH}y",      # "31 July"
+        f"{TARGET_MONTH} {TARGET_DATE}",       # "Jul 31"
+        f"{TARGET_DATE}-{TARGET_MONTH}"        # "31-Jul"
+    ]
+    
     for name, url in THEATERS.items():
         print(f"Checking {name}...")
         try:
-            # impersonate="chrome" perfectly mimics a real browser's network fingerprint to bypass Cloudflare
             response = requests.get(url, impersonate="chrome", timeout=15)
             print(f"HTTP Status Code for {name}: {response.status_code}")
             
             if response.status_code == 200:
-                if TARGET_DATE in response.text and TARGET_MONTH in response.text:
+                text = response.text
+                
+                # Check if ANY of the exact date strings exist in the HTML
+                if any(fmt in text for fmt in valid_date_formats):
                     send_telegram_alert(f"🚨 IMAX ALERT! {name} has updated showtimes for {TARGET_DATE} {TARGET_MONTH}! Open app NOW!")
                     alert_triggered = True
                 else:
-                    print(f"Status 200 OK, but target date ({TARGET_DATE} {TARGET_MONTH}) not found on page for {name}.")
+                    print(f"Status 200 OK, but exact target date not found on page for {name}.")
             else:
                 print(f"Blocked or error (Status {response.status_code}) for {name}.")
                 
