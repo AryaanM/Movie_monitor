@@ -5,9 +5,9 @@ from curl_cffi import requests
 BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
-TARGET_DATE = "30"
+TARGET_DATE = "31"
 TARGET_MONTH = "Jul"
-TARGET_ISO = "2026-07-30"
+TARGET_ISO = "2026-07-31"
 
 THEATERS = {
     "Palazzo (District)": f"https://www.district.in/movies/pvr-palazzo-the-nexus-vijaya-mall-chennai-in-chennai-CD1022274?date={TARGET_ISO}&showDate={TARGET_ISO}",
@@ -21,7 +21,6 @@ def send_telegram_alert(msg):
     telegram_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {"chat_id": CHAT_ID, "text": msg}
     try:
-        # 20-second timeout without impersonation prevents connection drops
         res = requests.post(telegram_url, json=payload, timeout=20)
         if res.status_code == 200:
             print("Telegram alert sent successfully!")
@@ -40,21 +39,15 @@ def check_tickets():
             if response.status_code == 200:
                 raw_html = response.text.upper()
                 
-                # 1. Delete the <head> section so URL meta-tags don't trick the script
                 body_html = re.sub(r'<HEAD.*?>.*?</HEAD>', '', raw_html, flags=re.DOTALL)
-                
-                # 2. Split the page code by the movie name
                 sections = body_html.split(TARGET_MOVIE)
                 valid_ticket_found = False
                 
-                # 3. Check the code immediately following the movie title
                 for section in sections[1:]:
-                    # A 1500-character window covers the formats and booking buttons 
-                    # without bleeding into the next movie on the page.
                     chunk = section[:1500]
                     
-                    # STRICT MODE: Requires the Format, the exact Date, AND a time signature
-                    if TARGET_FORMAT in chunk and TARGET_ISO in chunk and ":" in chunk:
+                    # THE FIX: Removed TARGET_ISO from this check since the URL already handles the date
+                    if TARGET_FORMAT in chunk and ":" in chunk:
                         valid_ticket_found = True
                         break 
                 
