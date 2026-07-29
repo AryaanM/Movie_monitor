@@ -5,10 +5,10 @@ from curl_cffi import requests
 BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
-# --- SET FOR JULY 30 TEST ---
-TARGET_DATE = "31"
+# --- STRICTLY SET FOR JULY 31 ---
+TARGET_DATE = "30"
 TARGET_MONTH = "Jul"
-TARGET_ISO = "2026-07-31"
+TARGET_ISO = "2026-07-30"
 
 # Force the URL to the exact date
 THEATERS = {
@@ -58,7 +58,9 @@ def check_tickets():
                     end = min(len(visible_text), match_index + 250)
                     text_chunk = visible_text[start:end]
                     
-                    if TARGET_FORMAT in text_chunk:
+                    # STRICT MODE: Requires IMAX *AND* a digital time format (e.g., 10:30, 09:45)
+                    # This guarantees it's an actual showtime and not just the theater's name.
+                    if TARGET_FORMAT in text_chunk and re.search(r'\d{1,2}:\d{2}', text_chunk):
                         valid_ticket_found = True
                         break 
                 
