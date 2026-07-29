@@ -1,5 +1,7 @@
 import os
 import random
+import string
+import time
 from curl_cffi import requests
 
 BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
@@ -12,17 +14,37 @@ TARGET_FORMAT_KEYWORD = "imax"     # matched case-insensitively against scrnFmt
 
 API_URL = "https://www.district.in/gw/consumer/movies/v3/cinema"
 
+# name -> (cinemaId, theater page URL, slug used for ?fromdate referer)
 THEATERS = {
-    "Palazzo": 1022274,
-    "LUXE (INOX Phoenix Marketcity)": 1020779,
+    "Palazzo": (
+        1022274,
+        "https://www.district.in/movies/pvr-palazzo-the-nexus-vijaya-mall-chennai-in-chennai-CD1022274",
+    ),
+    "LUXE (INOX Phoenix Marketcity)": (
+        1020779,
+        "https://www.district.in/movies/inox-phoenix-market-city-formerly-jazz-cinemas-velachery-chennai-in-chennai-CD1020779",
+    ),
 }
 
-HEADERS = {
-    "Accept": "application/json, text/plain, */*",
+COMMON_HEADERS = {
+    "Accept": "*/*",
     "Accept-Language": "en-US,en;q=0.9",
-    "Referer": "https://www.district.in/movies/",
-    "Origin": "https://www.district.in",
+    "api_source": "district",
+    "x-app-type": "ed_mweb",
+    "sec-ch-ua-platform": '"Windows"',
+    "sec-fetch-dest": "empty",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-site": "same-origin",
+    "priority": "u=1, i",
 }
+
+
+def make_guest_token():
+    # Mirrors the pattern seen in real traffic: <ms_timestamp>_<big_random_int>_<base36_random>
+    ts = int(time.time() * 1000)
+    big_rand = random.randint(10 ** 17, 10 ** 18 - 1)
+    tail = "".join(random.choices(string.ascii_lowercase + string.digits, k=11))
+    return f"{ts}_{big_rand}_{tail}"
 
 
 def send_telegram_alert(msg):
@@ -38,7 +60,22 @@ def send_telegram_alert(msg):
         print(f"Error sending Telegram alert: {e}")
 
 
-def check_theater(name, cinema_id):
+def check_theater(name, cinema_id, page_url):
+    session = requests.Session()
+
+    # Step 1: visit the real theater page first so Akamai + district.in set
+    # their normal cookies (ak_bmsc, bm_sv, AKA_A2, etc.) on this session,
+    # exactly like a browser would before it fires the API call.
+    try:
+        session.get(
+            f"{page_url}?fromdate={TARGET_DATE_ISO}",
+            impersonate="chrome",
+            timeout=15,
+        )
+    except Exception as e:
+        print(f"Bootstrap page load failed for {name}: {e}")
+        return False
+
     params = {
         "meta": 1,
         "reqData": 1,
@@ -49,13 +86,16 @@ def check_theater(name, cinema_id):
         "platform": "district",
         "cinemaId": cinema_id,
         "date": TARGET_DATE_ISO,
-        # cache-buster, harmless if API ignores unknown params
-        "_": random.randint(100000, 999999),
     }
 
+    headers = dict(COMMON_HEADERS)
+    headers["Referer"] = f"{page_url}?fromdate={TARGET_DATE_ISO}"
+    headers["x-guest-token"] = make_guest_token()
+
+    # Step 2: now call the actual data API within the same session (cookies carry over)
     try:
-        response = requests.get(
-            API_URL, params=params, headers=HEADERS, impersonate="chrome", timeout=15
+        response = session.get(
+            API_URL, params=params, headers=headers, impersonate="chrome", timeout=15
         )
     except Exception as e:
         print(f"Fetch failed for {name}: {e}")
@@ -115,9 +155,9 @@ def check_theater(name, cinema_id):
 
 def check_tickets():
     alert_triggered = False
-    for name, cinema_id in THEATERS.items():
+    for name, (cinema_id, page_url) in THEATERS.items():
         print(f"Checking {name}...")
-        if check_theater(name, cinema_id):
+        if check_theater(name, cinema_id, page_url):
             alert_triggered = True
 
     if not alert_triggered:
