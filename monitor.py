@@ -10,13 +10,11 @@ TARGET_DATE = "31"
 TARGET_MONTH = "Jul"
 TARGET_ISO = "2026-07-31"
 
-# Force the URL to the exact date
 THEATERS = {
     "Palazzo (District)": f"https://www.district.in/movies/pvr-palazzo-the-nexus-vijaya-mall-chennai-in-chennai-CD1022274?date={TARGET_ISO}&showDate={TARGET_ISO}",
     "LUXE (District)": f"https://www.district.in/movies/inox-phoenix-market-city-formerly-jazz-cinemas-velachery-chennai-in-kolathur-CD1020779?date={TARGET_ISO}&showDate={TARGET_ISO}"
 }
 
-# --- FILTERS ---
 TARGET_MOVIE = "THE ODYSSEY"  
 TARGET_FORMAT = "IMAX"
 
@@ -33,11 +31,8 @@ def send_telegram_alert(msg):
         print(f"Error sending Telegram alert: {e}")
 
 def get_visible_text(html):
-    # Completely delete all <script> and <style> tags and their hidden database contents
     text = re.sub(r'<(script|style)\b[^>]*>[\s\S]*?</\1>', ' ', html, flags=re.IGNORECASE)
-    # Strip remaining HTML layout tags
     text = re.sub(r'<[^>]+>', ' ', text)
-    # Compress spaces and convert to uppercase
     return re.sub(r'\s+', ' ', text).upper()
 
 def check_tickets():
@@ -55,12 +50,25 @@ def check_tickets():
                 
                 for match_index in movie_matches:
                     start = match_index
-                    end = min(len(visible_text), match_index + 250)
+                    # Expanded window slightly to capture full showtime blocks
+                    end = min(len(visible_text), match_index + 350)
                     text_chunk = visible_text[start:end]
                     
-                    # STRICT MODE: Requires IMAX *AND* a digital time format (e.g., 10:30, 09:45)
-                    # This guarantees it's an actual showtime and not just the theater's name.
-                    if TARGET_FORMAT in text_chunk and re.search(r'\d{1,2}:\d{2}', text_chunk):
+                    # 1. Look for IMAX
+                    has_imax = TARGET_FORMAT in text_chunk
+                    
+                    # 2. STRICT TIME: Must be a digital time immediately followed by AM or PM
+                    has_real_time = re.search(r'\d{1,2}:\d{2}\s*(?:AM|PM)', text_chunk)
+                    
+                    # 3. EMPTY STATE KILLER: Ensure the page isn't just saying "No Shows Available"
+                    is_empty_state = re.search(r'(NO SHOW|NOT AVAILABLE|NO TICKETS|CURRENTLY NOT)', text_chunk)
+                    
+                    if has_imax and has_real_time and not is_empty_state:
+                        # BLACK BOX DEBUGGER: Prints exactly what tricked the script
+                        print(f"\n--- 🚨 SYSTEM TRIGGERED ON THIS TEXT BLOCK 🚨 ---")
+                        print(f"{text_chunk}")
+                        print(f"-------------------------------------------------\n")
+                        
                         valid_ticket_found = True
                         break 
                 
