@@ -10,9 +10,9 @@ THEATERS = {
     "LUXE (District)": "https://www.district.in/movies/inox-phoenix-market-city-formerly-jazz-cinemas-velachery-chennai-in-kolathur-CD1020779"
 }
 
-TARGET_DATE = "31"
+TARGET_DATE = "30"
 TARGET_MONTH = "Jul"
-TARGET_ISO = "2026-07-31"  # The backend API date format
+TARGET_ISO = "2026-07-30"  # The backend API date format
 
 # --- FILTERS ---
 TARGET_MOVIE = "THE ODYSSEY"  
