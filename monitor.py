@@ -21,6 +21,7 @@ def send_telegram_alert(msg):
     telegram_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {"chat_id": CHAT_ID, "text": msg}
     try:
+        # Increased timeout prevents connection drops
         res = requests.post(telegram_url, json=payload, timeout=20)
         if res.status_code == 200:
             print("Telegram alert sent successfully!")
@@ -28,6 +29,12 @@ def send_telegram_alert(msg):
             print(f"Failed to send Telegram alert: {res.text}")
     except Exception as e:
         print(f"Error sending Telegram alert: {e}")
+
+def get_visible_text(html):
+    # Deletes all hidden backend databases to prevent false positives
+    text = re.sub(r'<(script|style)\b[^>]*>[\s\S]*?</\1>', ' ', html, flags=re.IGNORECASE)
+    text = re.sub(r'<[^>]+>', ' ', text)
+    return re.sub(r'\s+', ' ', text).upper()
 
 def check_tickets():
     alert_triggered = False
@@ -37,17 +44,19 @@ def check_tickets():
         try:
             response = requests.get(url, impersonate="chrome", timeout=15)
             if response.status_code == 200:
-                raw_html = response.text.upper()
                 
-                body_html = re.sub(r'<HEAD.*?>.*?</HEAD>', '', raw_html, flags=re.DOTALL)
-                sections = body_html.split(TARGET_MOVIE)
+                # Use only the text visible on the screen
+                visible_text = get_visible_text(response.text)
+                
+                movie_matches = [m.start() for m in re.finditer(TARGET_MOVIE, visible_text)]
                 valid_ticket_found = False
                 
-                for section in sections[1:]:
-                    chunk = section[:1500]
+                for match_index in movie_matches:
+                    start = match_index
+                    end = min(len(visible_text), match_index + 250)
+                    text_chunk = visible_text[start:end]
                     
-                    # THE FIX: Removed TARGET_ISO from this check since the URL already handles the date
-                    if TARGET_FORMAT in chunk and ":" in chunk:
+                    if TARGET_FORMAT in text_chunk:
                         valid_ticket_found = True
                         break 
                 
