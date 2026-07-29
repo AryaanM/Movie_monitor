@@ -1,10 +1,10 @@
 import os
 import re
-import time
 from curl_cffi import requests
 
-BOT_TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"
-CHAT_ID = "YOUR_TELEGRAM_CHAT_ID"
+# Pull secrets directly from GitHub Actions environment variables
+BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
 THEATERS = {
     "Palazzo (District)": "https://www.district.in/movies/pvr-palazzo-the-nexus-vijaya-mall-chennai-in-chennai-CD1022274",
@@ -16,8 +16,8 @@ TARGET_MONTH = "Jul"
 TARGET_MONTH_NUM = "07"
 TARGET_YEAR = "2026"
 
-# --- NEW FILTERS ---
-TARGET_MOVIE = "THE ODYSSEY"  # Change to "SPIDER-MAN" if you want Spider-Man tickets
+# --- FILTERS ---
+TARGET_MOVIE = "THE ODYSSEY"  # Set to "SPIDER-MAN" if you prefer
 TARGET_FORMAT = "IMAX"
 
 def send_telegram_alert(msg):
@@ -47,12 +47,12 @@ def check_tickets():
                 clean_text = re.sub(r'<[^>]+>', ' ', raw_html)
                 clean_text = re.sub(r'\s+', ' ', clean_text).upper()
                 
-                # Check for our three conditions
+                # Check for all three criteria
                 date_found = iso_date in raw_html or visible_format_1 in clean_text or visible_format_2 in clean_text
                 movie_found = TARGET_MOVIE in clean_text
                 imax_found = TARGET_FORMAT in clean_text
                 
-                # REQUIRE ALL THREE: Date AND Movie AND IMAX
+                # Require Date AND Movie AND Format
                 if date_found and movie_found and imax_found:
                     send_telegram_alert(f"🚨 TICKET ALERT! {name} has updated {TARGET_FORMAT} showtimes for {TARGET_MOVIE} on {TARGET_DATE} {TARGET_MONTH}! Open app NOW!")
                     alert_triggered = True
@@ -67,8 +67,4 @@ def check_tickets():
         print("Check completed across all targets.")
 
 if __name__ == "__main__":
-    print("Starting IMAX Ticket Monitor... Checking every 5 minutes.")
-    while True:
-        check_tickets()
-        print("Sleeping for 5 minutes...\n")
-        time.sleep(300)
+    check_tickets()
