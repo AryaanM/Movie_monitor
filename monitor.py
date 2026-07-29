@@ -7,9 +7,9 @@ from curl_cffi import requests
 BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
-TARGET_DATE = "31"
+TARGET_DATE = "30"
 TARGET_MONTH = "Jul"
-TARGET_ISO = "2026-07-31"
+TARGET_ISO = "2026-07-30"
 
 THEATERS = {
     "Palazzo (District)": f"https://www.district.in/movies/pvr-palazzo-the-nexus-vijaya-mall-chennai-in-chennai-CD1022274?date={TARGET_ISO}&showDate={TARGET_ISO}",
