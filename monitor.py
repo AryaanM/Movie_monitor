@@ -8,7 +8,7 @@ BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
 # --- SET FOR JULY 31 ---
-TARGET_DATE_ISO = "2026-07-31"
+TARGET_DATE_ISO = "2026-08-1"
 TARGET_MOVIE_KEYWORD = "odyssey"   # matched case-insensitively against movie name
 TARGET_FORMAT_KEYWORD = "imax"     # matched case-insensitively against scrnFmt
 
