@@ -10,9 +10,9 @@ THEATERS = {
     "LUXE (District)": "https://www.district.in/movies/inox-phoenix-market-city-formerly-jazz-cinemas-velachery-chennai-in-kolathur-CD1020779"
 }
 
-TARGET_DATE = "30"
+TARGET_DATE = "31"
 TARGET_MONTH = "Jul"
-TARGET_ISO = "2026-07-30"  # The backend API date format
+TARGET_ISO = "2026-07-31"  # Set to 31 for the actual drop
 
 # --- FILTERS ---
 TARGET_MOVIE = "THE ODYSSEY"  
@@ -40,15 +40,15 @@ def check_tickets():
             if response.status_code == 200:
                 raw_html = response.text.upper() 
                 
-                # Find every time the backend date (2026-07-31) appears in the code
+                # Find every time the backend date appears in the code
                 date_matches = [m.start() for m in re.finditer(TARGET_ISO, raw_html)]
                 
                 valid_ticket_found = False
                 
-                # Draw a 3,000 character window around the date to check for the movie & format
+                # Draw a tight 800-character window (400 on each side) to prevent crossing over into other movies
                 for match_index in date_matches:
-                    start = max(0, match_index - 1500)
-                    end = min(len(raw_html), match_index + 1500)
+                    start = max(0, match_index - 400)
+                    end = min(len(raw_html), match_index + 400)
                     code_chunk = raw_html[start:end]
                     
                     if TARGET_MOVIE in code_chunk and TARGET_FORMAT in code_chunk:
