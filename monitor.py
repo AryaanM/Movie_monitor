@@ -7,7 +7,7 @@ CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
 TARGET_DATE = "31"
 TARGET_MONTH = "Jul"
-TARGET_ISO = "2026-07-31"
+TARGET_ISO = "2026-07-30"
 
 # 1. Force the URL to the exact date
 THEATERS = {
