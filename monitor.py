@@ -30,11 +30,6 @@ def send_telegram_alert(msg):
     except Exception as e:
         print(f"Error sending Telegram alert: {e}")
 
-def get_visible_text(html):
-    text = re.sub(r'<(script|style)\b[^>]*>[\s\S]*?</\1>', ' ', html, flags=re.IGNORECASE)
-    text = re.sub(r'<[^>]+>', ' ', text)
-    return re.sub(r'\s+', ' ', text).upper()
-
 def check_tickets():
     alert_triggered = False
     
@@ -43,34 +38,32 @@ def check_tickets():
         try:
             response = requests.get(url, impersonate="chrome", timeout=15)
             if response.status_code == 200:
-                visible_text = get_visible_text(response.text)
                 
-                movie_matches = [m.start() for m in re.finditer(TARGET_MOVIE, visible_text)]
+                # 1. Kill the JSON database by deleting <script> tags, but KEEP the HTML buttons and links
+                html_no_scripts = re.sub(r'<(script|style)\b[^>]*>[\s\S]*?</\1>', ' ', response.text, flags=re.IGNORECASE).upper()
+                
+                movie_matches = [m.start() for m in re.finditer(TARGET_MOVIE, html_no_scripts)]
                 valid_ticket_found = False
                 
                 for match_index in movie_matches:
+                    # 2. Grab a larger 2,500-char window because HTML tags take up space
                     start = match_index
-                    # Expanded window slightly to capture full showtime blocks
-                    end = min(len(visible_text), match_index + 350)
-                    text_chunk = visible_text[start:end]
+                    end = min(len(html_no_scripts), match_index + 2500)
+                    html_chunk = html_no_scripts[start:end]
                     
-                    # 1. Look for IMAX
-                    has_imax = TARGET_FORMAT in text_chunk
-                    
-                    # 2. STRICT TIME: Must be a digital time immediately followed by AM or PM
-                    has_real_time = re.search(r'\d{1,2}:\d{2}\s*(?:AM|PM)', text_chunk)
-                    
-                    # 3. EMPTY STATE KILLER: Ensure the page isn't just saying "No Shows Available"
-                    is_empty_state = re.search(r'(NO SHOW|NOT AVAILABLE|NO TICKETS|CURRENTLY NOT)', text_chunk)
-                    
-                    if has_imax and has_real_time and not is_empty_state:
-                        # BLACK BOX DEBUGGER: Prints exactly what tricked the script
-                        print(f"\n--- 🚨 SYSTEM TRIGGERED ON THIS TEXT BLOCK 🚨 ---")
-                        print(f"{text_chunk}")
-                        print(f"-------------------------------------------------\n")
+                    # 3. DATE LOCK: The button links MUST contain the Target Date, proving it didn't redirect to today
+                    if TARGET_FORMAT in html_chunk and TARGET_ISO in html_chunk:
                         
-                        valid_ticket_found = True
-                        break 
+                        # 4. Now that we know it's the right day, strip the HTML to look for the time block
+                        plain_text_chunk = re.sub(r'<[^>]+>', ' ', html_chunk)
+                        plain_text_chunk = re.sub(r'\s+', ' ', plain_text_chunk)
+                        
+                        has_real_time = re.search(r'\d{1,2}:\d{2}\s*(?:AM|PM)', plain_text_chunk)
+                        is_empty_state = re.search(r'(NO SHOW|NOT AVAILABLE|NO TICKETS|CURRENTLY NOT)', plain_text_chunk)
+                        
+                        if has_real_time and not is_empty_state:
+                            valid_ticket_found = True
+                            break 
                 
                 if valid_ticket_found:
                     send_telegram_alert(f"🚨 TICKET ALERT! {name} has updated {TARGET_FORMAT} showtimes for {TARGET_MOVIE} on {TARGET_DATE} {TARGET_MONTH}! Open app NOW!")
