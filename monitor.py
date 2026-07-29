@@ -1,18 +1,19 @@
 import os
 import re
+import random
 from curl_cffi import requests
 
 BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
-# --- STRICTLY SET FOR JULY 31 ---
-TARGET_DATE = "30"
+# --- SET FOR JULY 30 TEST ---
+TARGET_DATE = "31"
 TARGET_MONTH = "Jul"
-TARGET_ISO = "2026-07-30"
+TARGET_ISO = "2026-07-31"
 
-THEATERS = {
-    "Palazzo (District)": f"https://www.district.in/movies/pvr-palazzo-the-nexus-vijaya-mall-chennai-in-chennai-CD1022274?date={TARGET_ISO}&showDate={TARGET_ISO}",
-    "LUXE (District)": f"https://www.district.in/movies/inox-phoenix-market-city-formerly-jazz-cinemas-velachery-chennai-in-kolathur-CD1020779?date={TARGET_ISO}&showDate={TARGET_ISO}"
+THEATER_BASES = {
+    "Palazzo (District)": "https://www.district.in/movies/pvr-palazzo-the-nexus-vijaya-mall-chennai-in-chennai-CD1022274",
+    "LUXE (District)": "https://www.district.in/movies/inox-phoenix-market-city-formerly-jazz-cinemas-velachery-chennai-in-kolathur-CD1020779"
 }
 
 TARGET_MOVIE = "THE ODYSSEY"  
@@ -30,40 +31,41 @@ def send_telegram_alert(msg):
     except Exception as e:
         print(f"Error sending Telegram alert: {e}")
 
+def get_visible_text(html):
+    # Strip hidden databases and HTML layout tags
+    text = re.sub(r'<(script|style)\b[^>]*>[\s\S]*?</\1>', ' ', html, flags=re.IGNORECASE)
+    text = re.sub(r'<[^>]+>', ' ', text)
+    return re.sub(r'\s+', ' ', text).upper()
+
 def check_tickets():
     alert_triggered = False
     
-    for name, url in THEATERS.items():
+    for name, base_url in THEATER_BASES.items():
         print(f"Checking {name}...")
+        
+        # The nocache randomizer forces the server to evaluate the exact date instead of sending cached data
+        url = f"{base_url}?date={TARGET_ISO}&showDate={TARGET_ISO}&nocache={random.randint(100000, 999999)}"
+        
         try:
             response = requests.get(url, impersonate="chrome", timeout=15)
             if response.status_code == 200:
+                visible_text = get_visible_text(response.text)
                 
-                # 1. Kill the JSON database by deleting <script> tags, but KEEP the HTML buttons and links
-                html_no_scripts = re.sub(r'<(script|style)\b[^>]*>[\s\S]*?</\1>', ' ', response.text, flags=re.IGNORECASE).upper()
-                
-                movie_matches = [m.start() for m in re.finditer(TARGET_MOVIE, html_no_scripts)]
+                movie_matches = [m.start() for m in re.finditer(TARGET_MOVIE, visible_text)]
                 valid_ticket_found = False
                 
                 for match_index in movie_matches:
-                    # 2. Grab a larger 2,500-char window because HTML tags take up space
                     start = match_index
-                    end = min(len(html_no_scripts), match_index + 2500)
-                    html_chunk = html_no_scripts[start:end]
+                    end = min(len(visible_text), match_index + 350)
+                    text_chunk = visible_text[start:end]
                     
-                    # 3. DATE LOCK: The button links MUST contain the Target Date, proving it didn't redirect to today
-                    if TARGET_FORMAT in html_chunk and TARGET_ISO in html_chunk:
-                        
-                        # 4. Now that we know it's the right day, strip the HTML to look for the time block
-                        plain_text_chunk = re.sub(r'<[^>]+>', ' ', html_chunk)
-                        plain_text_chunk = re.sub(r'\s+', ' ', plain_text_chunk)
-                        
-                        has_real_time = re.search(r'\d{1,2}:\d{2}\s*(?:AM|PM)', plain_text_chunk)
-                        is_empty_state = re.search(r'(NO SHOW|NOT AVAILABLE|NO TICKETS|CURRENTLY NOT)', plain_text_chunk)
-                        
-                        if has_real_time and not is_empty_state:
-                            valid_ticket_found = True
-                            break 
+                    # Look for IMAX and require a strict digital time (e.g., 09:00 AM) to kill ghost pings
+                    has_imax = TARGET_FORMAT in text_chunk
+                    has_real_time = re.search(r'\d{1,2}:\d{2}\s*(?:AM|PM)', text_chunk)
+                    
+                    if has_imax and has_real_time:
+                        valid_ticket_found = True
+                        break 
                 
                 if valid_ticket_found:
                     send_telegram_alert(f"🚨 TICKET ALERT! {name} has updated {TARGET_FORMAT} showtimes for {TARGET_MOVIE} on {TARGET_DATE} {TARGET_MONTH}! Open app NOW!")
