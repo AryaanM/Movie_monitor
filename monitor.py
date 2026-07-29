@@ -6,7 +6,7 @@ from curl_cffi import requests
 BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
-# --- SET FOR JULY 30 TEST ---
+# --- SET FOR JULY 31 ---
 TARGET_DATE = "31"
 TARGET_MONTH = "Jul"
 TARGET_ISO = "2026-07-31"
@@ -32,7 +32,6 @@ def send_telegram_alert(msg):
         print(f"Error sending Telegram alert: {e}")
 
 def get_visible_text(html):
-    # Strip hidden databases and HTML layout tags
     text = re.sub(r'<(script|style)\b[^>]*>[\s\S]*?</\1>', ' ', html, flags=re.IGNORECASE)
     text = re.sub(r'<[^>]+>', ' ', text)
     return re.sub(r'\s+', ' ', text).upper()
@@ -43,29 +42,35 @@ def check_tickets():
     for name, base_url in THEATER_BASES.items():
         print(f"Checking {name}...")
         
-        # The nocache randomizer forces the server to evaluate the exact date instead of sending cached data
+        # Randomizer bypasses server caching to ensure it fetches live data
         url = f"{base_url}?date={TARGET_ISO}&showDate={TARGET_ISO}&nocache={random.randint(100000, 999999)}"
         
         try:
             response = requests.get(url, impersonate="chrome", timeout=15)
             if response.status_code == 200:
                 visible_text = get_visible_text(response.text)
-                
-                movie_matches = [m.start() for m in re.finditer(TARGET_MOVIE, visible_text)]
+                sections = visible_text.split(TARGET_MOVIE)
                 valid_ticket_found = False
                 
-                for match_index in movie_matches:
-                    start = match_index
-                    end = min(len(visible_text), match_index + 350)
-                    text_chunk = visible_text[start:end]
-                    
-                    # Look for IMAX and require a strict digital time (e.g., 09:00 AM) to kill ghost pings
-                    has_imax = TARGET_FORMAT in text_chunk
-                    has_real_time = re.search(r'\d{1,2}:\d{2}\s*(?:AM|PM)', text_chunk)
-                    
-                    if has_imax and has_real_time:
-                        valid_ticket_found = True
-                        break 
+                if len(sections) > 1:
+                    for section in sections[1:]:
+                        # 1. THE WALL: Find the NEXT movie's certificate (e.g., U/A |, A |)
+                        # We skip the first 15 chars so we don't accidentally match The Odyssey's own certificate
+                        next_cert = re.search(r'\b(U/A|A|U|UA\d*\+?)\s*\|', section[15:])
+                        
+                        if next_cert:
+                            # 2. Chop the string exactly at the pipe. This deletes the next movie's showtimes entirely!
+                            text_chunk = section[:next_cert.start() + 15]
+                        else:
+                            text_chunk = section[:1500]
+                        
+                        # 3. STRICT FORWARD PROXIMITY: "IMAX" must appear shortly BEFORE a digital time.
+                        # This links the format directly to the showtime and ignores standard 2D times.
+                        is_real_imax = re.search(r'IMAX.{0,30}?\d{1,2}:\d{2}\s*(?:AM|PM)', text_chunk)
+                        
+                        if is_real_imax:
+                            valid_ticket_found = True
+                            break 
                 
                 if valid_ticket_found:
                     send_telegram_alert(f"🚨 TICKET ALERT! {name} has updated {TARGET_FORMAT} showtimes for {TARGET_MOVIE} on {TARGET_DATE} {TARGET_MONTH}! Open app NOW!")
