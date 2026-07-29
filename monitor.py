@@ -12,7 +12,7 @@ THEATERS = {
 
 TARGET_DATE = "30"
 TARGET_MONTH = "Jul"
-TARGET_ISO = "2026-07-31"  # Set to 31 for the actual drop
+TARGET_ISO = "2026-07-30"  # Set to 31 for the actual drop
 
 # --- FILTERS ---
 TARGET_MOVIE = "THE ODYSSEY"  
