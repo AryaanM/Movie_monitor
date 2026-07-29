@@ -2,7 +2,6 @@ import os
 import re
 from curl_cffi import requests
 
-# Pull secrets directly from GitHub Actions environment variables
 BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
@@ -13,11 +12,10 @@ THEATERS = {
 
 TARGET_DATE = "31"
 TARGET_MONTH = "Jul"
-TARGET_MONTH_NUM = "07"
-TARGET_YEAR = "2026"
+TARGET_ISO = "2026-07-31"  # The backend API date format
 
 # --- FILTERS ---
-TARGET_MOVIE = "THE ODYSSEY"  # Set to "SPIDER-MAN" if you prefer
+TARGET_MOVIE = "THE ODYSSEY"  
 TARGET_FORMAT = "IMAX"
 
 def send_telegram_alert(msg):
@@ -34,26 +32,30 @@ def send_telegram_alert(msg):
 
 def check_tickets():
     alert_triggered = False
-    iso_date = f"{TARGET_YEAR}-{TARGET_MONTH_NUM}-{TARGET_DATE}"
-    visible_format_1 = f"{TARGET_DATE} {TARGET_MONTH}".upper()
-    visible_format_2 = f"{TARGET_MONTH} {TARGET_DATE}".upper()
     
     for name, url in THEATERS.items():
         print(f"Checking {name}...")
         try:
             response = requests.get(url, impersonate="chrome", timeout=15)
             if response.status_code == 200:
-                raw_html = response.text
-                clean_text = re.sub(r'<[^>]+>', ' ', raw_html)
-                clean_text = re.sub(r'\s+', ' ', clean_text).upper()
+                raw_html = response.text.upper() 
                 
-                # Check for all three criteria
-                date_found = iso_date in raw_html or visible_format_1 in clean_text or visible_format_2 in clean_text
-                movie_found = TARGET_MOVIE in clean_text
-                imax_found = TARGET_FORMAT in clean_text
+                # Find every time the backend date (2026-07-31) appears in the code
+                date_matches = [m.start() for m in re.finditer(TARGET_ISO, raw_html)]
                 
-                # Require Date AND Movie AND Format
-                if date_found and movie_found and imax_found:
+                valid_ticket_found = False
+                
+                # Draw a 3,000 character window around the date to check for the movie & format
+                for match_index in date_matches:
+                    start = max(0, match_index - 1500)
+                    end = min(len(raw_html), match_index + 1500)
+                    code_chunk = raw_html[start:end]
+                    
+                    if TARGET_MOVIE in code_chunk and TARGET_FORMAT in code_chunk:
+                        valid_ticket_found = True
+                        break 
+                
+                if valid_ticket_found:
                     send_telegram_alert(f"🚨 TICKET ALERT! {name} has updated {TARGET_FORMAT} showtimes for {TARGET_MOVIE} on {TARGET_DATE} {TARGET_MONTH}! Open app NOW!")
                     alert_triggered = True
                 else:
