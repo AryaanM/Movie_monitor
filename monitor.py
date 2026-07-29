@@ -5,14 +5,15 @@ from curl_cffi import requests
 BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
-THEATERS = {
-    "Palazzo (District)": "https://www.district.in/movies/pvr-palazzo-the-nexus-vijaya-mall-chennai-in-chennai-CD1022274",
-    "LUXE (District)": "https://www.district.in/movies/inox-phoenix-market-city-formerly-jazz-cinemas-velachery-chennai-in-kolathur-CD1020779"
-}
-
-TARGET_DATE = "30"
+TARGET_DATE = "31"
 TARGET_MONTH = "Jul"
-TARGET_ISO = "2026-07-30"  # Set to 31 for the actual drop
+TARGET_ISO = "2026-07-31"
+
+# 1. Inject the target date directly into the URL to bypass the default "today" view
+THEATERS = {
+    "Palazzo (District)": f"https://www.district.in/movies/pvr-palazzo-the-nexus-vijaya-mall-chennai-in-chennai-CD1022274?date={TARGET_ISO}&showDate={TARGET_ISO}",
+    "LUXE (District)": f"https://www.district.in/movies/inox-phoenix-market-city-formerly-jazz-cinemas-velachery-chennai-in-kolathur-CD1020779?date={TARGET_ISO}&showDate={TARGET_ISO}"
+}
 
 # --- FILTERS ---
 TARGET_MOVIE = "THE ODYSSEY"  
@@ -40,18 +41,19 @@ def check_tickets():
             if response.status_code == 200:
                 raw_html = response.text.upper() 
                 
-                # Find every time the backend date appears in the code
-                date_matches = [m.start() for m in re.finditer(TARGET_ISO, raw_html)]
+                # 2. Flip the logic: Find all occurrences of the MOVIE title first
+                movie_matches = [m.start() for m in re.finditer(TARGET_MOVIE, raw_html)]
                 
                 valid_ticket_found = False
                 
-                # Draw a tight 800-character window (400 on each side) to prevent crossing over into other movies
-                for match_index in date_matches:
-                    start = max(0, match_index - 400)
-                    end = min(len(raw_html), match_index + 400)
+                # 3. Forward Window: Look only at the 1,500 characters immediately AFTER the movie title
+                # This completely ignores the global calendar buttons which sit above the movie list
+                for match_index in movie_matches:
+                    start = match_index
+                    end = min(len(raw_html), match_index + 1500)
                     code_chunk = raw_html[start:end]
                     
-                    if TARGET_MOVIE in code_chunk and TARGET_FORMAT in code_chunk:
+                    if TARGET_ISO in code_chunk and TARGET_FORMAT in code_chunk:
                         valid_ticket_found = True
                         break 
                 
