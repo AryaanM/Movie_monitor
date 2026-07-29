@@ -5,9 +5,9 @@ from curl_cffi import requests
 BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
-TARGET_DATE = "31"
+TARGET_DATE = "30"
 TARGET_MONTH = "Jul"
-TARGET_ISO = "2026-07-31"
+TARGET_ISO = "2026-07-30"
 
 # 1. Inject the target date directly into the URL to bypass the default "today" view
 THEATERS = {
