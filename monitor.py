@@ -9,7 +9,7 @@ TARGET_DATE = "30"
 TARGET_MONTH = "Jul"
 TARGET_ISO = "2026-07-30"
 
-# 1. Inject the target date directly into the URL to bypass the default "today" view
+# 1. Force the URL to the exact date
 THEATERS = {
     "Palazzo (District)": f"https://www.district.in/movies/pvr-palazzo-the-nexus-vijaya-mall-chennai-in-chennai-CD1022274?date={TARGET_ISO}&showDate={TARGET_ISO}",
     "LUXE (District)": f"https://www.district.in/movies/inox-phoenix-market-city-formerly-jazz-cinemas-velachery-chennai-in-kolathur-CD1020779?date={TARGET_ISO}&showDate={TARGET_ISO}"
@@ -31,6 +31,14 @@ def send_telegram_alert(msg):
     except Exception as e:
         print(f"Error sending Telegram alert: {e}")
 
+def get_visible_text(html):
+    # 2. Completely delete all <script> and <style> tags and their hidden database contents
+    text = re.sub(r'<(script|style)\b[^>]*>[\s\S]*?</\1>', ' ', html, flags=re.IGNORECASE)
+    # 3. Strip remaining HTML layout tags
+    text = re.sub(r'<[^>]+>', ' ', text)
+    # 4. Compress all spaces and make uppercase so it reads like a plain book
+    return re.sub(r'\s+', ' ', text).upper()
+
 def check_tickets():
     alert_triggered = False
     
@@ -39,21 +47,21 @@ def check_tickets():
         try:
             response = requests.get(url, impersonate="chrome", timeout=15)
             if response.status_code == 200:
-                raw_html = response.text.upper() 
                 
-                # 2. Flip the logic: Find all occurrences of the MOVIE title first
-                movie_matches = [m.start() for m in re.finditer(TARGET_MOVIE, raw_html)]
+                # Get only the text a human can actually see on screen
+                visible_text = get_visible_text(response.text)
                 
+                movie_matches = [m.start() for m in re.finditer(TARGET_MOVIE, visible_text)]
                 valid_ticket_found = False
                 
-                # 3. Forward Window: Look only at the 1,500 characters immediately AFTER the movie title
-                # This completely ignores the global calendar buttons which sit above the movie list
+                # Check the 250 visible characters immediately after the movie title.
+                # Because all HTML is gone, 250 chars is a very tight window that won't bleed into other movies.
                 for match_index in movie_matches:
                     start = match_index
-                    end = min(len(raw_html), match_index + 1500)
-                    code_chunk = raw_html[start:end]
+                    end = min(len(visible_text), match_index + 250)
+                    text_chunk = visible_text[start:end]
                     
-                    if TARGET_ISO in code_chunk and TARGET_FORMAT in code_chunk:
+                    if TARGET_FORMAT in text_chunk:
                         valid_ticket_found = True
                         break 
                 
